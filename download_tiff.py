@@ -4,6 +4,8 @@ import requests
 import cv2
 import numpy as np
 
+from download_tile import downloadPlus
+
 
 def swap(a, b):
     a, b = b, a
@@ -23,16 +25,16 @@ class Box:
 
 
 def build_url(x, y, z):
-    return "http://khms0.google.com/kh/v=893?&x={x}&y={y}&z={z}".format(x=x, y=y, z=z)
+    return "https://gac-geo.googlecnapps.club/maps/vt?lyrs=s&x={x}&y={y}&z={z}".format(x=x, y=y, z=z)
 
 
 def download(x, y, z, path):
     proxies = {
-        "http": "http://127.0.0.1:50084",
-        "https": "http://127.0.0.1:50084"
+        "http": "http://127.0.0.1:7890",
+        "https": "http://127.0.0.1:7890"
     }
     url = build_url(x, y, z)
-    
+    print(url)
     path = path + "\\{z}\\{x}\\".format(z=z, x=x)
     if not os.path.exists(path):
         os.makedirs(path)
@@ -48,6 +50,7 @@ def download(x, y, z, path):
                     f.write(response.content)
                 break;
             else:
+                print(response.text)
                 print("network error!")
 
 
@@ -73,21 +76,22 @@ def cal_tiff_box(x1, y1, x2, y2, z):
 
 
 def core(z):
-    path = r"C:\Users\cutec\Desktop\map"
-    point_lt = Point(114.444810, 30.489335)
-    point_rb = Point(114.459038, 30.482315)
+    path = r"C:\Users\zdy\Desktop\map3"
+    point_lt = Point(79.86, 41.41)
+    point_rb = Point(79.91, 41.40)
     x1, y1 = lonlat2xyz(point_lt.lon, point_lt.lat, z)
     x2, y2 = lonlat2xyz(point_rb.lon, point_rb.lat, z)
     print(x1, y1, z)
     print(x2, y2, z)
     count = 0
     all = (x2-x1+1) * (y2-y1+1)
-    for i in range(x1, x2+1):
-        for j in range(y1, y2+1):
-            download(i, j, z, path)
-            count += 1
-            print("{m}/{n}".format(m=count, n=all))
-            pass
+    # for i in range(x1, x2+1):
+    #     for j in range(y1, y2+1):
+    #         download(i, j, z, path)
+    #         count += 1
+    #         print("{m}/{n}".format(m=count, n=all))
+    #         pass
+    downloadPlus(x1, y1, x2, y2, z, path)
     merge(x1, y1, x2, y2, z, path)
     lt, rb = cal_tiff_box(x1, y1, x2, y2, z)
     cmd = "gdal_translate.exe -of GTiff -a_srs EPSG:4326 -a_ullr {p1_lon} " \
@@ -103,7 +107,12 @@ def merge(x1, y1, x2, y2, z, path):
     for i in range(x1, x2+1):
         col_list = list()
         for j in range(y1, y2+1):
-            col_list.append(cv2.imread(path + "\\{z}\\{i}\\{j}.png".format(i=i, j=j,z=z)))
+            img_path = path + "\\{z}\\{i}\\{j}.png".format(i=i, j=j, z=z)
+            if os.path.exists(img_path):
+                col_list.append(cv2.imread(img_path))
+            else:
+                temp = np.zeros((256,256,3), dtype=np.uint8)
+                col_list.append(temp)
         k = np.vstack(col_list)
         row_list.append(k)
     result = np.hstack(row_list)
@@ -111,6 +120,6 @@ def merge(x1, y1, x2, y2, z, path):
 
 
 if __name__ == '__main__':
-    core(z = 19) #调整下载级别 
+    core(z = 19) #调整下载级别
 
 

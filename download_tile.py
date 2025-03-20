@@ -23,14 +23,14 @@ class Box:
 
 
 def build_url(x, y, z):
-    return "http://khms0.google.com/kh/v=893?&x={x}&y={y}&z={z}".format(x=x, y=y, z=z)
+    return "https://gac-geo.googlecnapps.club/maps/vt?lyrs=s&x={x}&y={y}&z={z}".format(x=x, y=y, z=z)
 
 
 def download(x, y, z, path):
     print('[Download]:',x,y,z,path)
     proxies = {
-        "http": "http://127.0.0.1:10809",
-        "https": "http://127.0.0.1:10809"
+        "http": "http://127.0.0.1:7890",
+        "https": "http://127.0.0.1:7890"
     }
     url = build_url(x, y, z)
     response = requests.get(url, proxies=proxies)
@@ -104,13 +104,13 @@ if __name__ == '__main__':
     # 存储目录
     path = r"D:\map"
     # 下载范围的 左上点经纬度
-    point_lt = Point(116.286476, 40.069985)
+    point_lt = Point(79.86, 41.41)
     # 下载范围的 右下点经纬度
-    point_rb = Point(116.324707 ,40.054938)
+    point_rb = Point(79.91, 41.40)
     # 开始级别 
-    level_start = 16
+    level_start = 19
     # 结束级别
-    level_end = 17
+    level_end = 19
 
     for i in range(level_start,level_end+1):
         core(point_lt,point_rb,path,i)
