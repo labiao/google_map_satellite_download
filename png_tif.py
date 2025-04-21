@@ -11,17 +11,18 @@ import rasterio
 from PIL import Image
 
 from rasterio.transform import from_bounds
+from tqdm import tqdm
 
-path = r"C:\Users\zdy\Desktop\map2"
-with open(os.path.join(path, r'output.json'), "r", encoding="utf-8") as f:
+path = r"H:\googlemaps\map_河北唐山_秦皇岛卢龙_北京平谷"
+with open(os.path.join(path, r'output_20.json'), "r", encoding="utf-8") as f:
     dict_data = json.load(f)  # 确保它是 Python 字典/列表
-    for key, value in dict_data.items():
-        z = 19
+    for key, value in tqdm(dict_data.items(), desc="Processing items", unit="item"):
+        z = 20
         x, y = key.split("_")
         # x, y = int(x), int(y)
         img_path = path + "\\{z}\\{x}\\".format(z=z, x=x)
         input_file = img_path + "\\{y}.png".format(y=y)
-        output_file = path + '\\tif' + "\\{x}_{y}.tif".format(x=x, y=y)
+        output_file = path + '\\tif20' + "\\{x}_{y}.tif".format(x=x, y=y)
         with Image.open(input_file) as img:
             img_array = np.array(img)
 

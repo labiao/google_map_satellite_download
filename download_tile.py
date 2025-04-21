@@ -4,6 +4,8 @@ import requests
 import numpy as np
 import threading
 
+from tqdm import tqdm
+
 
 def swap(a, b):
     a, b = b, a
@@ -27,22 +29,29 @@ def build_url(x, y, z):
 
 
 def download(x, y, z, path):
-    print('[Download]:',x,y,z,path)
+    # print('[Download]:',x,y,z,path)
     proxies = {
         "http": "http://127.0.0.1:7890",
         "https": "http://127.0.0.1:7890"
     }
-    url = build_url(x, y, z)
-    response = requests.get(url, proxies=proxies)
+
     path = path + "\\{z}\\{x}\\".format(z=z, x=x)
     if not os.path.exists(path):
         os.makedirs(path)
+
     filepath = path + "\\{y}.png".format(y=y)
-    if response.status_code == 200:
-        with open(filepath, "wb") as f:
-            f.write(response.content)
+    if os.path.exists(filepath) and os.path.getsize(filepath) > 400:
+        # print(os.path.getsize(filepath))
+        print("skip")
+        pass
     else:
-        print("network error!")
+        url = build_url(x, y, z)
+        response = requests.get(url, proxies=proxies)
+        if response.status_code == 200:
+            with open(filepath, "wb") as f:
+                f.write(response.content)
+        else:
+            print("network error!")
 
 class myThread (threading.Thread):
     def __init__(self, array):
@@ -50,7 +59,7 @@ class myThread (threading.Thread):
         self.array = array
        
     def run(self):
-        for i in self.array:
+        for i in tqdm(self.array, desc="Downloading", unit="file"):
             download(i[0],i[1],i[2],i[3])
 
 

@@ -76,30 +76,70 @@ def cal_tiff_box(x1, y1, x2, y2, z):
 
 
 def core(z):
-    path = r"H:\googlemaps\map_desert3"
-    point_lt = Point(96.40, 40.58)
-    point_rb = Point(96.76, 40.55)
-    x1, y1 = lonlat2xyz(point_lt.lon, point_lt.lat, z)
-    x2, y2 = lonlat2xyz(point_rb.lon, point_rb.lat, z)
-    print(x1, y1, z)
-    print(x2, y2, z)
-    count = 0
-    all = (x2-x1+1) * (y2-y1+1)
-    # for i in range(x1, x2+1):
-    #     for j in range(y1, y2+1):
-    #         download(i, j, z, path)
-    #         count += 1
-    #         print("{m}/{n}".format(m=count, n=all))
-    #         pass
-    downloadPlus(x1, y1, x2, y2, z, path)
-    merge(x1, y1, x2, y2, z, path)
-    lt, rb = cal_tiff_box(x1, y1, x2, y2, z)
-    cmd = "gdal_translate.exe -of GTiff -a_srs EPSG:4326 -a_ullr {p1_lon} " \
-          "{p1_lat} {p2_lon} {p2_lat}" \
-          " {input} {output}".format(p1_lon=lt.lon, p1_lat=lt.lat, p2_lon=rb.lon, p2_lat=rb.lat,
-                                     input='/'.join(path.split('\\'))+"/merge.png", output='/'.join(path.split('\\'))+"/output.tiff")
+    path = r"H:\googlemaps\ys_map"
+    # point_lt = Point(79.86, 41.41)
+    # point_rb = Point(79.91, 41.40)
+    # x1, y1 = lonlat2xyz(point_lt.lon, point_lt.lat, z)
+    # x2, y2 = lonlat2xyz(point_rb.lon, point_rb.lat, z)
 
-    print('配置环境变量 然后运行 即可生成 tiff ' + cmd)
+    import geopandas as gpd
+    from shapely.geometry import Point
+    from pyproj import Transformer
+
+    # 加载矢量文件
+    gdf = gpd.read_file(r"./Heritage_List_silkroads/Heritage_List_silkroads.shp")  # 或 .geojson
+
+    # 创建从 WGS84 到 UTM 的转换器（例如 UTM 44N 区）
+    transformer_to_utm = Transformer.from_crs("EPSG:4326", "EPSG:32644", always_xy=True)
+    transformer_to_wgs = Transformer.from_crs("EPSG:32644", "EPSG:4326", always_xy=True)
+
+    # 偏移量（单位：米）
+    offset = 250
+
+    # 遍历每个点
+    for idx, row in gdf.iterrows():
+        lon, lat = row.geometry.x, row.geometry.y
+
+        # 转为 UTM 坐标
+        x, y = transformer_to_utm.transform(lon, lat)
+
+        # 生成矩形的左上和右下点（在 UTM 下）
+        x1, y1 = x - offset, y + offset  # 左上
+        x2, y2 = x + offset, y - offset  # 右下
+
+        # 再转回经纬度
+        x1, y1 = transformer_to_wgs.transform(x1, y1)
+        x2, y2 = transformer_to_wgs.transform(x2, y2)
+
+        x1, y1 = lonlat2xyz(x1, y1, z)
+        x2, y2 = lonlat2xyz(x2, y2, z)
+
+        print(f"中心点: ({lon:.5f}, {lat:.5f})")
+        print(f"左上角: ({x1:.5f}, {y1:.5f})")
+        print(f"右下角: ({x2:.5f}, {y2:.5f})")
+        print("---------")
+
+        print(x1, y1, z)
+        print(x2, y2, z)
+        count = 0
+        all = (x2-x1+1) * (y2-y1+1)
+        for i in range(x1, x2+1):
+            for j in range(y1, y2+1):
+                download(i, j, z, path)
+                count += 1
+                print("{m}/{n}".format(m=count, n=all))
+                pass
+        # downloadPlus(x1, y1, x2, y2, z, path)
+        merge(x1, y1, x2, y2, z, path)
+        lt, rb = cal_tiff_box(x1, y1, x2, y2, z)
+        cmd = "gdal_translate.exe -of GTiff -a_srs EPSG:4326 -a_ullr {p1_lon} " \
+              "{p1_lat} {p2_lon} {p2_lat}" \
+              " {input} {output}".format(p1_lon=lt.lon, p1_lat=lt.lat, p2_lon=rb.lon, p2_lat=rb.lat,
+                                         input='/'.join(path.split('\\'))+"/merge.png", output='/'.join(path.split('\\'))+"/output.tiff")
+
+        print('配置环境变量 然后运行 即可生成 tiff ' + cmd)
+
+        break
    
 
 def merge(x1, y1, x2, y2, z, path):
@@ -120,6 +160,6 @@ def merge(x1, y1, x2, y2, z, path):
 
 
 if __name__ == '__main__':
-    core(z = 18) #调整下载级别
+    core(z = 19) #调整下载级别
 
 

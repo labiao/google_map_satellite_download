@@ -139,34 +139,34 @@ def merge(x1, y1, x2, y2, z, path):
     result = np.hstack(row_list)
     cv2.imwrite(path + "//merge.png", result)
 
-def core(path, shp_parh, z):
+# 生成瓦片边界的 Polygon
+def tile_polygon(x, y, z):
+    bounds = mercantile.bounds(x, y, z)  # 获取瓦片边界
+    return Polygon([(bounds.west, bounds.south), (bounds.west, bounds.north),
+                    (bounds.east, bounds.north), (bounds.east, bounds.south)])
+
+def core(path, shp_parh, z1, z2):
     # 读取长城矢量数据（Shapefile / GeoJSON）
     gdf = gpd.read_file(shp_parh)  # 确保是 EPSG:4326 (WGS 84)
-
-    # 获取矢量的边界框 (Bounding Box)
-    minx, miny, maxx, maxy = gdf.total_bounds  # 获取长城的整体范围
-    count = (maxx-minx+1) * (maxy-miny+1)
-    # 计算该范围内的所有可能瓦片
     tile_set = set()
-    for tile in mercantile.tiles(minx, miny, maxx, maxy, z):
-        tile_set.add((tile.x, tile.y, z))  # 存入瓦片编号 (x, y, z)
-
-    # 生成瓦片边界的 Polygon
-    def tile_polygon(x, y, z):
-        bounds = mercantile.bounds(x, y, z)  # 获取瓦片边界
-        return Polygon([(bounds.west, bounds.south), (bounds.west, bounds.north),
-                        (bounds.east, bounds.north), (bounds.east, bounds.south)])
-
-    # 只保留与长城相交的瓦片
     data_dict = {}
-    print(len(tile_set))
-    # sys.exit()
+
+    # 1.只保留json存储的瓦片
     filtered_tiles = set()
-    # with open(os.path.join(path, 'output.json'), "r", encoding="utf-8") as f:
-    #     dict_data = json.load(f)  # 确保它是 Python 字典/列表
-    # for key, value in dict_data.items():
-    #     x, y = key.split("_")
-    #     filtered_tiles.add((int(x), int(y), z, path))
+    with open(os.path.join(path, 'output_19.json'), "r", encoding="utf-8") as f:
+        dict_data = json.load(f)  # 确保它是 Python 字典/列表
+    for key, value in dict_data.items():
+        x, y = key.split("_")
+        x, y = int(x), int(y)
+        # 计算该范围内的所有可能瓦片
+        bounds = mercantile.bounds(x, y, z1)
+        minx, miny, maxx, maxy = (bounds.west, bounds.south, bounds.east, bounds.north)
+        for tile in mercantile.tiles(minx, miny, maxx, maxy, z2):
+            tile_set.add((tile.x, tile.y, z2))  # 存入瓦片编号 (x, y, z)
+
+    print(len(tile_set))
+
+    # 2.只保留json存储与长城相交的瓦片
     for x, y, z in tqdm(tile_set):
         tile_geom = tile_polygon(x, y, z)  # 转换瓦片为矢量 Polygon
         if gdf.geometry.intersects(tile_geom).any():  # 只选取相交的瓦片
@@ -176,16 +176,16 @@ def core(path, shp_parh, z):
             data_dict[str(x) + '_' + str(y)] = [(LT[0], LT[1]), (RB[0], RB[1])]
     print(len(filtered_tiles))
 
-    # 下载符合条件的瓦片
+    # 3.下载符合条件的瓦片
     for x, y, z, _ in filtered_tiles:
         LT = xyz2lonlat(x, y, z)  # 左上角
         RB = xyz2lonlat(x + 1, y + 1, z)  # 右下角（确保完整覆盖）
         data_dict[str(x)+'_'+str(y)] = [(LT[0], LT[1]), (RB[0], RB[1])]
-        download(x, y, z, path)
-        print("{m}/{n}".format(m=count, n=all))
-        pass
+        # download(x, y, z, path)
+
+    # 4.存储符合条件的瓦片的json
     json_output = json.dumps(data_dict, indent=4, ensure_ascii=False)
-    with open(os.path.join(path, 'output.json'), "w", encoding="utf-8") as f:
+    with open(os.path.join(path, 'output_20.json'), "w", encoding="utf-8") as f:
         f.write(json_output)
 
     filteredArray = list(filtered_tiles)
@@ -201,22 +201,6 @@ def core(path, shp_parh, z):
     for thread in tqdm(threads, desc="Threads Progress", unit="thread"):
         thread.join()
 
-    # 获取所有 x, y 的范围
-    # x_vals = [x for x, y, _ in tile_set]
-    # y_vals = [y for x, y, _ in tile_set]
-    #
-    # x_min, x_max = min(x_vals), max(x_vals)
-    # y_min, y_max = min(y_vals), max(y_vals)
-    # merge(x_min, y_min, x_max, y_max, z, path)
-    #
-    # lt, rb = cal_tiff_box_from_filtered_tiles(filtered_tiles, z)
-    # cmd = "gdal_translate.exe -of GTiff -a_srs EPSG:4326 -a_ullr {p1_lon} " \
-    #       "{p1_lat} {p2_lon} {p2_lat}" \
-    #       " {input} {output}".format(p1_lon=lt.lon, p1_lat=lt.lat, p2_lon=rb.lon, p2_lat=rb.lat,
-    #                                  input='/'.join(path.split('\\'))+"/merge.png", output='/'.join(path.split('\\'))+"/output.tiff")
-    #
-    # print('配置环境变量 然后运行 即可生成 tiff \n' + cmd)
-
 
 if __name__ == '__main__':
 
@@ -224,6 +208,6 @@ if __name__ == '__main__':
     shp_parh = r"E:\PycharmProjects\spider\长城重点区段矢量\河北唐山_秦皇岛卢龙_北京平谷.shp"
 
     # 需要生成json文件！！！！！！！！！！！！！！！！！！！！
-    core(path, shp_parh, z = 20) #调整下载级别
+    core(path, shp_parh, z1=19, z2=20) #调整下载级别
 
 
